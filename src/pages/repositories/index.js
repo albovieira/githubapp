@@ -4,7 +4,9 @@ import {
   View,
   Text,
   AsyncStorage,
-  ActivityIndicator
+  ActivityIndicator,
+  FlatList,
+  RefreshControl
 } from "react-native";
 import Icon from "react-native-vector-icons/FontAwesome";
 import styles from "./styles";
@@ -20,24 +22,37 @@ export default class Repositories extends Component {
 
   state = {
     repositories: [],
-    loading: false
+    loading: false,
+    refreshing: false
   };
 
   componentWillMount() {
-    this.loadRepositories();
+    this.setState({ loading: true });
+    this.loadRepositories().then(() => {
+      this.setState({ loading: false });
+    });
   }
 
   loadRepositories = async () => {
-    this.setState({ loading: true });
+    this.setState({ refreshing: true });
     const username = await AsyncStorage.getItem("@Githuber:username");
     const response = await api.get(`/users/${username}/repos`);
-    this.setState({ repositories: response.data, loading: false });
+    this.setState({ repositories: response.data, refreshing: false });
   };
 
-  renderRepositories = () =>
-    this.state.repositories.map(repository => (
-      <Repository key={repository.id} repository={repository} />
-    ));
+  renderRepositories = () => (
+    <FlatList
+      refreshControl={
+        <RefreshControl
+          refreshing={this.state.refreshing}
+          onRefresh={this.loadRepositories}
+        />
+      }
+      data={this.state.repositories}
+      keyExtractor={repository => repository.id}
+      renderItem={({ item }) => <Repository repository={item} />}
+    />
+  );
 
   renderList = () =>
     this.state.repositories.length ? (
@@ -48,13 +63,13 @@ export default class Repositories extends Component {
 
   render() {
     return (
-      <ScrollView style={styles.container}>
+      <View style={styles.container}>
         {this.state.loading ? (
           <ActivityIndicator size="small" />
         ) : (
           this.renderList()
         )}
-      </ScrollView>
+      </View>
     );
   }
 }
